@@ -20,5 +20,3 @@ def get_session(token):
     return session
 def delete_session(token):
     active_sessions.pop(token,None)
-
-        
