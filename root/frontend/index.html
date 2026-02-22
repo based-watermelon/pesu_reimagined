@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PESU-ReImagined</title>
+  <style>
+    body{font-family:sans-serif;background:#0a0a12;color:#e2d9f3;margin:0}
+    #app{max-width:680px;margin:0 auto;padding:1.5rem}
+    h1{color:#c084fc;margin-bottom:1.2rem}
+    input{width:100%;background:#1a1a2e;border:1px solid #b57bee;
+          color:white;padding:.5rem;margin:.3rem 0}
+    button{background:#c084fc;color:black;border:none;
+           padding:.5rem 1.4rem;cursor:pointer;margin-top:.4rem}
+    #chat{display:none}
+    #messages{background:#0d0d18;border:1px solid #b57bee;
+              height:380px;overflow-y:auto;padding:1rem;margin-bottom:.6rem}
+    .msg{margin-bottom:.8rem;line-height:1.5}
+    .user{color:#c084fc} .bot{color:#22d3ee}
+    #row{display:flex;gap:.5rem}
+    #inp{flex:1;background:#1a1a2e;border:1px solid #b57bee;
+         color:white;padding:.5rem}
+    #err{color:#f87171;margin-top:.4rem;font-size:.85rem}
+  </style>
+</head>
+<body>
+<div id="app">
+  <h1>PESU-ReImagined</h1>
+  <div id="login">
+    <input id="user" placeholder="PESU Username" />
+    <input id="pass" type="password" placeholder="Password" />
+    <button onclick="doLogin()">Login</button>
+    <div id="err"></div>
+  </div>
+  <div id="chat">
+    <p id="info" style="color:#7c6d9a;font-size:.85rem"></p>
+    <div id="messages"></div>
+    <div id="row">
+      <input id="inp" placeholder="Ask about attendance, timetable..." />
+      <button onclick="doSend()">Send</button>
+    </div>
+  </div>
+</div>
+<script>
+  const API = 'http://127.0.0.1:8000';
+  let token = null;
+  async function doLogin() {
+    const u = document.getElementById('user').value;
+    const p = document.getElementById('pass').value;
+    document.getElementById('err').textContent = '';
+    try {
+      const API = 'http://127.0.0.1:8000';
+      const res  = await fetch(API+'/login',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:u,password:p})
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail||'Login failed');
+      token = data.token;
+      document.getElementById('login').style.display='none';
+      document.getElementById('chat').style.display='block';
+      document.getElementById('messages').innerHTML='';
+      document.getElementById('info').textContent='Logged in as '+data.username+' - '+data.role;
+      addMsg('Hello! I am PESU-ReImagined. Ask me anything related to PES University.','bot');
+    } catch(e){document.getElementById('err').textContent=e.message;}
+  }
+  async function doSend() {
+    const inp=document.getElementById('inp');
+    const msg=inp.value.trim();
+    if(!msg||!token) return;
+    addMsg(msg,'user'); inp.value='';
+    try {
+      const res=await fetch(API+'/chat',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({message:msg,token:token})
+      });
+      if (!res.ok) {
+        const text=await res.text();
+        let errMsg='Chat request failed';
+        try {
+          const errData=JSON.parse(text);
+          errMsg=errData.detail||errMsg;
+        }catch(e){
+          errMsg=text.substring(0,100)||errMsg;
+        }
+        throw new Error(errMsg);
+      }
+      const data=await res.json();
+      if (data.reply) {
+        addMsg(data.reply,'bot');
+      } else {
+        addMsg('No response received','bot');
+      }
+    }catch(e){addMsg('Error: '+e.message,'bot');}
+  }
+  function addMsg(text,who){
+    const d=document.createElement('div');
+    d.className='msg '+who;
+    d.textContent=(who==='user'?'You: ':'PESU-Reimagined: ')+text;
+    const m=document.getElementById('messages');
+    m.appendChild(d); m.scrollTop=m.scrollHeight;
+  }
+  document.addEventListener('keydown',function(e){if(e.key==='Enter')doSend();});
+</script>
+</body>
+</html>
